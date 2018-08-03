@@ -9,6 +9,30 @@
 Adafruit_LSM9DS1 lsm = Adafruit_LSM9DS1();
 const int chipSelect = 10;
 int timer = 0;
+const int delayVal = 50;
+// The sample rate for the accelormeter data is 20 HZ with a delay.
+// Therefore, the time units for the start and durations are in 5/6 of a second: i.e. a duration of 100 is ~83 seconds.
+
+// Burn Wire Setup
+const int burnWirePin = 7;
+int burnTick = 0;
+const int burnStart = 72; // in 5/6 seconds
+const int burnDuration = 100;
+
+// DC motor with H Bridge Setup
+const int motorClockPin = 8;    // Turn the motor Clockwise
+const int motorCounterPin = 9;    // Turn the motor Counter Clockwise
+int motorTick = 0;
+const int motorStart = 100; // in 5/6 seconds
+const int motorDuration = 100;
+
+
+// Solenoid with Relay (Or any other 5V mechanism with a relay)
+const int SolenoidPin = 5;
+int soleTick = 0;
+const int soleStart = 100;
+const int soleDuration = 100;
+=+++
 #define LSM9DS1_SCK A5
 #define LSM9DS1_MISO 12
 #define LSM9DS1_MOSI A4
@@ -39,12 +63,19 @@ void setupSensor()
 void setup() {
 
   Serial.begin(115200);
-  while (!Serial) {
-    delay(1); // will pause Zero, Leonardo, etc until serial console opens
-  }
+
+  pinMode(burnWirePin, OUTPUT);
+
+  pinMode(motorClockPin, OUTPUT);
+  pinMode(motorCounterPin, OUTPUT);
+
+  pinMode(SolenoidPin, OUTPUT);
+  
+  pinMode(13, OUTPUT);
+  
   if (!lsm.begin())
   {
-    Serial.println("Oops ... unable to initialize the LSM9DS1. Check your wiring!");
+    Serial.println("Unable to initialize the LSM9DS1. Check your wiring.");
     while (1);
   }
   Serial.print("Initializing SD card...");
@@ -60,29 +91,44 @@ void setup() {
 
 void loop() {
 
+  // DC WITH H BRIDGE MOTOR -------------------------------------------
+
+   if(motorTick > motorStart && motorTick < motorStart + motorDuration){
+      digitalWrite(motorClockPin, HIGH);
+   }
+  
+   if(motorTick > motorStart + motorDuration && motorTick < motorStart + 2*motorDuration){
+      digitalWrite(motorClockPin, LOW);
+   }
+
+   motorTick = motorTick +1;
+   
+  // BURN WIRE --------------------------------------------------------
+  if(burnTick > burnStart  && burnTick < burnStart + burnDuration){
+    digitalWrite(burnWirePin,HIGH);
+  }
+  if(burnTick > burnStart + burnDuration && burnTick < burnStart + 2*burnDuration){
+    digitalWrite(burnWirePin,LOW);
+  }
+  burnTick = burnTick +1;
+
+
+  // SOLENOID WITH RELAY ---------------------------------------------
+  if(soleTick > soleStart && soleTick < soleStart + soleDuration){
+    digitalWrite(SolenoidPin, HIGH);
+  }
+  if(soleTick > soleStart + soleDuration && soleTick < soleStart + 2*soleDuration){
+    digitalWrite(SolenoidPin, LOW);
+  }
+
+  soleTick = soleTick + 1;
+
+  // READ AND SAVE ACCEL DATA -----------------------------------------
   timer = timer+1;
   
-  lsm.read();  /* ask it to read in the data */ 
-
-  /* Get a new sensor event */ 
+  lsm.read();   
   sensors_event_t a, m, g, temp;
-
   lsm.getEvent(&a, &m, &g, &temp); 
-// Acceleration in m/s^2
-//  a.acceleration.x
-//  a.acceleration.y
-//  a.acceleration.z
-
-// Magnetometer in gauss
-//  m.magnetic.x
-//  m.magnetic.y
-//  m.magnetic.z
-
-// Gyro in dps
-//  g.gyro.x
-//  g.gyro.y
-//  g.gyro.z
-
   
   // open the file. note that only one file can be open at a time,
   // so you have to close this one before opening another.
@@ -107,17 +153,21 @@ void loop() {
   else {
     Serial.println("error opening datalog.txt or ran out of time");
   }
-
-    delay(200);
+    
+    delay(delayVal); // Samples once every 50 milliseconds, 20Hz
 }
 
+// Acceleration in m/s^2
+//  a.acceleration.x
+//  a.acceleration.y
+//  a.acceleration.z
 
+// Magnetometer in gauss
+//  m.magnetic.x
+//  m.magnetic.y
+//  m.magnetic.z
 
-
-
-
-
-
-
-
-
+// Gyro in dps
+//  g.gyro.x
+//  g.gyro.y
+//  g.gyro.z
